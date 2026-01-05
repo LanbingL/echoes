@@ -1,5 +1,3 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-
 const fallbackNews = [
   { title: "Connection Lost: Using Offline Backup", url: "#", source: "System", imagePrompt: "static noise" },
   { title: "Global Climate Summit Reaches Critical Point", url: "#", source: "World News", imagePrompt: "climate" },
@@ -10,20 +8,10 @@ const fallbackNews = [
   { title: "Artificial Intelligence Regulation Bill Passed", url: "#", source: "Gov Wire", imagePrompt: "ai" },
   { title: "Electric Vehicle Sales Surpass Traditional Autos", url: "#", source: "Auto Trends", imagePrompt: "cars" },
   { title: "Medical Breakthrough in Genetic Therapy", url: "#", source: "Health Daily", imagePrompt: "dna" },
-  { title: "Stock Markets Rally Amid Economic Optimism", url: "#", source: "Finance Insider", imagePrompt: "stocks" },
-  { title: "Cybersecurity Firm Detects Massive Data Breach", url: "#", source: "NetSec", imagePrompt: "cyber" },
-  { title: "Renewable Energy Costs Hit Historic Low", url: "#", source: "Green Energy", imagePrompt: "solar" },
-  { title: "Space Telescope Captures Distant Galaxy Collision", url: "#", source: "Astro News", imagePrompt: "galaxy" },
-  { title: "Major Urban Infrastructure Project Announced", url: "#", source: "City Plan", imagePrompt: "city" },
-  { title: "Cryptocurrency Volatility Continues", url: "#", source: "Coin Watch", imagePrompt: "crypto" },
-  { title: "Film Festival Winners Announced", url: "#", source: "Arts Daily", imagePrompt: "film" },
-  { title: "Sports League Expansion Teams Confirmed", url: "#", source: "Sports Center", imagePrompt: "sports" },
-  { title: "Scientific Study Links Sleep to Longevity", url: "#", source: "Science Today", imagePrompt: "sleep" },
-  { title: "Global Trade Agreement Signed", url: "#", source: "Economy Now", imagePrompt: "trade" },
-  { title: "Rare Weather Phenomenon Observed in Arctic", url: "#", source: "Weather Channel", imagePrompt: "snow" }
+  { title: "Stock Markets Rally Amid Economic Optimism", url: "#", source: "Finance Insider", imagePrompt: "stocks" }
 ];
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -51,7 +39,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               - "imagePrompt": A concise visual description.`
             }]
           }],
-          tools: [{ googleSearch: {} }],
           generationConfig: {
             responseMimeType: "application/json"
           }
