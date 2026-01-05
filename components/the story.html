@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Identity Matrix Desktop</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+        :root {
+            --main-blue: #00f3ff;
+            --dim-blue: #005f66;
+            --bg-dark: #000811;
+            --ui-bg: #001522;
+            --ui-border: #00f3ff;
+            --accent-green: #33ff00;
+            --accent-red: #ff3333;
+            --accent-yellow: #ffcc00;
+            --icon-hover: rgba(0, 243, 255, 0.2);
+            --taskbar-h: 40px;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #020205; 
+            font-family: 'VT323', monospace;
+            color: var(--main-blue);
+            user-select: none;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* --- SMALLER RETRO MONITOR --- */
+        #monitor-wrapper {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 450px;
+            z-index: 100;
+            
+            /* Cyan-Blue Casing */
+            background: linear-gradient(135deg, #003344 0%, #001122 100%);
+            border: 4px solid var(--main-blue);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 
+                0 0 15px var(--main-blue),
+                0 0 80px rgba(0, 243, 255, 0.3),
+                inset 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        #crt-screen {
+            background-color: var(--bg-dark);
+            width: 100%;
+            height: 100%;
+            border-radius: 30px / 15px;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #004455;
+            box-shadow: inset 0 0 60px rgba(0,0,0,0.9);
+            display: flex;
+            flex-direction: column;
+        }
+
+        #crt-screen::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 20, 30, 0) 50%, rgba(0, 5, 15, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 50;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        /* --- DESKTOP UI --- */
+        #desktop {
+            flex-grow: 1;
+            width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, 80px);
+            grid-template-rows: repeat(auto-fill, 90px);
+            grid-gap: 10px;
+            align-content: start;
+            position: relative;
+        }
+
+        .icon {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            text-align: center;
+            border: 1px solid transparent;
+            padding: 5px;
+            border-radius: 4px;
+            transition: background 0.2s;
+            z-index: 5;
+        }
+
+        .icon:hover {
+            background: var(--icon-hover);
+            border-color: var(--dim-blue);
+        }
+
+        .icon-img {
+            width: 40px;
+            height: 40px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 30px;
+            border: 2px solid var(--main-blue);
+            box-shadow: 0 0 5px var(--main-blue);
+            background: rgba(0, 243, 255, 0.1);
+        }
+
+        .icon-label {
+            font-size: 14px;
+            line-height: 1.1;
+            color: var(--main-blue);
+            text-shadow: 0 0 2px var(--main-blue);
+            word-break: break-all;
+        }
+
+        /* --- TASKBAR --- */
+        #taskbar {
+            height: var(--taskbar-h);
+            background: var(--ui-bg);
+            border-top: 2px solid var(--ui-border);
+            display: flex;
+            align-items: center;
+            padding: 0 5px;
+            justify-content: space-between;
+            z-index: 40;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
+        }
+
+        #start-btn {
+            background: #002233;
+            border: 2px outset var(--main-blue);
+            color: var(--main-blue);
+            font-family: 'VT323', monospace;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 2px 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            box-shadow: 2px 2px 0 #000;
+        }
+        
+        #start-btn:active, #start-btn.active {
+            border-style: inset;
+            transform: translateY(1px);
+        }
+
+        #task-list {
+            flex-grow: 1;
+            display: flex;
+            padding: 0 10px;
+            gap: 5px;
+        }
+
+        .task-tab {
+            background: #001122;
+            border: 1px solid var(--dim-blue);
+            color: var(--dim-blue);
+            padding: 2px 10px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .task-tab.active {
+            background: #003344;
+            color: var(--main-blue);
+            border: 1px inset var(--main-blue);
+            box-shadow: inset 1px 1px 5px rgba(0,0,0,0.5);
+        }
+
+        #clock {
+            background: #000;
+            border: 1px inset var(--dim-blue);
+            padding: 2px 8px;
+            font-size: 16px;
+            color: var(--main-blue);
+        }
+
+        /* --- START MENU --- */
+        #start-menu {
+            position: absolute;
+            bottom: var(--taskbar-h);
+            left: 2px;
+            width: 150px;
+            background: var(--ui-bg);
+            border: 2px solid var(--ui-border);
+            display: none;
+            flex-direction: column;
+            z-index: 60;
+            box-shadow: 2px 2px 10px #000;
+        }
+        
+        #start-menu.visible { display: flex; }
+
+        .menu-item {
+            padding: 8px 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #003344;
+        }
+        .menu-item:hover {
+            background: var(--main-blue);
+            color: #000;
+        }
+
+        /* --- WINDOW SYSTEM --- */
+        .window {
+            position: absolute;
+            top: 10%; left: 10%;
+            width: 80%;
+            height: 70%;
+            background: rgba(0, 15, 25, 0.95);
+            border: 2px solid var(--ui-border);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            z-index: 10;
+            display: none; 
+        }
+
+        .window.active { display: flex; z-index: 20; }
+
+        .title-bar {
+            background: var(--main-blue);
+            color: #000;
+            padding: 4px 8px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: default;
+        }
+
+        .close-btn {
+            background: #fff;
+            border: 1px solid #000;
+            width: 16px; height: 16px;
+            line-height: 14px;
+            text-align: center;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .close-btn:hover { background: var(--accent-red); color: #fff; }
+
+        .window-content {
+            flex-grow: 1;
+            padding: 15px;
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+        .window-content::-webkit-scrollbar { display: none; }
+
+        /* Window Toolbar (New) */
+        .window-toolbar {
+            display: flex;
+            gap: 8px;
+            padding: 8px;
+            background: #001122;
+            border-top: 1px solid var(--dim-blue);
+        }
+
+        .win-btn {
+            flex-grow: 1;
+            background: #002233;
+            border: 1px solid var(--main-blue);
+            color: var(--main-blue);
+            font-family: 'VT323', monospace;
+            font-size: 16px;
+            cursor: pointer;
+            text-transform: uppercase;
+            padding: 4px 0;
+            transition: all 0.2s;
+        }
+
+        .win-btn:hover {
+            background: var(--main-blue);
+            color: #000;
+        }
+
+        .win-btn.danger {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+        }
+        
+        .win-btn.danger:hover {
+            background: var(--accent-red);
+            color: #fff;
+        }
+
+        /* --- TERMINAL SPECIFIC --- */
+        #terminal-output {
+            white-space: pre-wrap;
+            margin-bottom: 10px;
+            font-size: 18px;
+            line-height: 1.3;
+        }
+
+        #input-line {
+            display: flex;
+            align-items: center;
+            opacity: 0;
+        }
+        #input-line.visible { opacity: 1; }
+
+        input {
+            background: transparent;
+            border: none;
+            color: var(--main-blue);
+            font-family: 'VT323', monospace;
+            font-size: 18px;
+            outline: none;
+            flex-grow: 1;
+            text-transform: uppercase;
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 8px; height: 18px;
+            background: var(--main-blue);
+            animation: blink 1s step-end infinite;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* --- NOTEPAD SPECIFIC --- */
+        #notepad-text {
+            font-size: 18px;
+            line-height: 1.4;
+            color: #fff;
+            text-shadow: none;
+        }
+
+        /* --- UTILS --- */
+        .text-blue { color: var(--main-blue); }
+        .text-green { color: var(--accent-green); }
+        .text-red { color: var(--accent-red); }
+        .text-yellow { color: var(--accent-yellow); }
+        
+        .option-list { color: #88ccff; margin: 5px 0 10px 15px; }
+        .option-item { margin-bottom: 2px; }
+
+        .crt-scanlines {
+            position: absolute; pointer-events: none; top:0; left:0; width:100%; height:100%;
+            background: linear-gradient(rgba(18,16,16,0)50%,rgba(0,0,0,0.25)50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06));
+            background-size:100% 3px,3px 100%; z-index:20; opacity:0.6;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="monitor-wrapper">
+        <div id="crt-screen">
+            <div class="crt-scanlines"></div>
+
+            <!-- DESKTOP -->
+            <div id="desktop">
+                <!-- Main Program -->
+                <div class="icon" onclick="openProgram('creator')">
+                    <div class="icon-img" style="border-color: var(--accent-yellow);">⚙️</div>
+                    <div class="icon-label">STORY<br>CREATOR.EXE</div>
+                </div>
+                <!-- Icons for pre-generated files will appear here via JS -->
+            </div>
+
+            <!-- START MENU -->
+            <div id="start-menu">
+                <div class="menu-item" onclick="openProgram('creator')">Run Creator</div>
+                <div class="menu-item" onclick="toggleStart()">Settings</div>
+                <div class="menu-item" style="border-top: 1px solid var(--dim-blue)" onclick="location.reload()">Shutdown...</div>
+            </div>
+
+            <!-- CREATOR WINDOW -->
+            <div id="window-creator" class="window">
+                <div class="title-bar">
+                    <span>STORY_CREATOR.EXE</span>
+                    <span class="close-btn" onclick="closeWindow('creator')">X</span>
+                </div>
+                <div class="window-content" id="terminal-scroll">
+                    <div id="terminal-output"></div>
+                    <div id="input-line">
+                        <span style="color:var(--accent-yellow); margin-right:8px;">&gt;</span>
+                        <input type="text" id="user-input" autocomplete="off">
+                        <span class="cursor"></span>
+                    </div>
+                </div>
+                <!-- Toolbar -->
+                <div class="window-toolbar">
+                    <button class="win-btn" onclick="creatorBtn('help')">F1 HELP</button>
+                    <button class="win-btn" onclick="creatorBtn('status')">F2 STATUS</button>
+                    <button class="win-btn" onclick="runIntro()">F5 RESET</button>
+                    <button class="win-btn danger" onclick="closeWindow('creator')">ESC EXIT</button>
+                </div>
+            </div>
+
+            <!-- NOTEPAD WINDOW -->
+            <div id="window-notepad" class="window">
+                <div class="title-bar">
+                    <span id="notepad-title">FILE_VIEWER.EXE</span>
+                    <span class="close-btn" onclick="closeWindow('notepad')">X</span>
+                </div>
+                <div class="window-content">
+                    <div id="notepad-text"></div>
+                </div>
+            </div>
+
+            <!-- TASKBAR -->
+            <div id="taskbar">
+                <button id="start-btn" onclick="toggleStart()">
+                    <span style="font-size:20px">❖</span> START
+                </button>
+                <div id="task-list">
+                    <!-- Dynamic Tabs -->
+                </div>
+                <div id="clock">00:00</div>
+            </div>
+
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- GLOBAL VARIABLES ---
+        const apiKey = ""; 
+        let camera, scene, renderer, composer, controls;
+        const clock = new THREE.Clock();
+
+        // 5 Pre-Generated Stories for the Desktop
+        let files = [
+            { 
+                name: "GHOST_DATA.TXT", 
+                content: "FILE CORRUPTED.\nSECTORS: 94-B MISSING.\nREMNANT: 'I was waiting for the light to change, but the sky just turned off instead.'\nSTATUS: FRAGMENTED." 
+            },
+            { 
+                name: "ECHO_LOG.TXT", 
+                content: "STATIC DRIFT.\nECHOES OF A LOST SIGNAL.\nWAITING FOR CONNECTION.\nTHE SILENCE IS LOUD TONIGHT.\n\n- ECHO_OBSERVER" 
+            },
+            { 
+                name: "NEON_ERR.TXT", 
+                content: "VOID GAZE.\nWATCHING THE ENTROPY.\nDATA DISSOLVES LIKE RAIN.\nERROR 404: PURPOSE NOT FOUND.\n\n- NEON_GHOST" 
+            },
+            { 
+                name: "VOID_01.TXT", 
+                content: "DIGITAL GHOST.\nMEMORY FRAGMENTS LOADING.\nSYSTEM SILENCE IS A COMFORT.\nI AM WATCHING THE WATCHERS.\n\n- VOID_WALKER" 
+            },
+            { 
+                name: "STATIC_ID.TXT", 
+                content: "WHITE NOISE.\nA PATTERN IN THE SNOW.\nI AM NOT HERE.\nI AM A RECORDING OF SOMEONE WHO WAS.\n\n- STATIC_ENTITY" 
+            }
+        ];
+
+        // Terminal Refs
+        const outputDiv = document.getElementById('terminal-output');
+        const inputDiv = document.getElementById('input-line');
+        const inputField = document.getElementById('user-input');
+        const terminalScroll = document.getElementById('terminal-scroll');
+        const startMenu = document.getElementById('start-menu');
+        const startBtn = document.getElementById('start-btn');
+        
+        const QUESTIONS = [
+            { id: 'temporal', text: "When do you feel most present?", options: ["Late at night", "Early morning", "In between things", "When nothing is happening", "I'm not sure"] },
+            { id: 'attention', text: "What usually holds your focus?", options: ["Other people's lives", "News/Events", "Messages for me", "Obligations", "Nothing for long"] },
+            { id: 'expression', text: "When something matters, you:", options: ["Say it immediately", "Rewrite it", "Keep it inside", "Transform it", "Let it pass"] },
+            { id: 'observation', text: "Being watched feels:", options: ["Comforting", "Neutral", "Uneasy", "Lonely", "Ignore it"] },
+            { id: 'loneliness', text: "Isolation State:", options: ["Alone", "Surrounded", "Waiting", "Avoiding", "None"] },
+            { id: 'self', text: "Finish: 'Most days, I am someone who...'", type: 'text' },
+            { id: 'signal', text: "Signal Preference:", options: ["Steady", "Flicker", "Static", "Silence"] }
+        ];
+
+        let currentQIndex = 0;
+        let userAnswers = {};
+        let isProcessing = false;
+
+        // --- OS CLOCK ---
+        function updateClock() {
+            const now = new Date();
+            let h = now.getHours();
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            h = h % 12;
+            h = h ? h : 12; 
+            document.getElementById('clock').innerText = `${h}:${m} ${ampm}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // --- WINDOW MANAGER ---
+        window.toggleStart = () => {
+            startMenu.classList.toggle('visible');
+            startBtn.classList.toggle('active');
+        };
+
+        window.openProgram = (id) => {
+            startMenu.classList.remove('visible'); 
+            startBtn.classList.remove('active');
+            
+            document.querySelectorAll('.window').forEach(w => w.classList.remove('active'));
+            document.getElementById(`window-${id}`).classList.add('active');
+            
+            updateTaskbar(id);
+
+            if(id === 'creator') {
+                runIntro();
+            }
+        };
+
+        window.closeWindow = (id) => {
+            document.getElementById(`window-${id}`).classList.remove('active');
+            updateTaskbar(null);
+        };
+
+        window.openFile = (index) => {
+            const file = files[index];
+            document.getElementById('notepad-title').innerText = file.name;
+            document.getElementById('notepad-text').innerText = file.content;
+            window.openProgram('notepad');
+        };
+
+        function updateTaskbar(activeId) {
+            const list = document.getElementById('task-list');
+            list.innerHTML = '';
+            
+            if(document.getElementById('window-creator').classList.contains('active') || activeId === 'creator') {
+                const tab = document.createElement('div');
+                tab.className = `task-tab ${activeId==='creator'?'active':''}`;
+                tab.innerText = "Creator";
+                tab.onclick = () => window.openProgram('creator');
+                list.appendChild(tab);
+            }
+
+            if(document.getElementById('window-notepad').classList.contains('active') || activeId === 'notepad') {
+                const tab = document.createElement('div');
+                tab.className = `task-tab ${activeId==='notepad'?'active':''}`;
+                tab.innerText = "Viewer";
+                tab.onclick = () => window.openProgram('notepad'); 
+                list.appendChild(tab);
+            }
+        }
+
+        function renderDesktop() {
+            const desktop = document.getElementById('desktop');
+            const creatorIcon = desktop.firstElementChild;
+            desktop.innerHTML = '';
+            desktop.appendChild(creatorIcon);
+
+            files.forEach((file, index) => {
+                const div = document.createElement('div');
+                div.className = 'icon';
+                div.onclick = () => window.openFile(index);
+                div.innerHTML = `
+                    <div class="icon-img">📄</div>
+                    <div class="icon-label">${file.name}</div>
+                `;
+                desktop.appendChild(div);
+            });
+        }
+
+        // --- GEMINI & GENERATION ---
+        function generateLocalProfile(answers) {
+            const r1 = ["ECHO", "VOID", "SIGNAL", "STATIC", "GHOST", "NULL", "DATA", "NEON", "SHADOW", "BLUE"];
+            const r2 = ["OBSERVER", "WALKER", "DRIFTER", "READER", "RESIDENT", "ENTITY", "NODE"];
+            const name = `${r1[Math.floor(Math.random()*r1.length)]}_${r2[Math.floor(Math.random()*r2.length)]}_${Math.floor(Math.random()*99)}.TXT`;
+
+            const l1 = answers['temporal'].includes("night") ? "Darkness is weight." : "Light arrives early.";
+            const l2 = answers['attention'].includes("lives") ? "Watching through glass." : "Drifting in static.";
+            const l3 = answers['loneliness'].includes("alone") ? "Solitude active." : "Noise surrounds.";
+            
+            return JSON.stringify({ name: name, poem: `${l1}\n${l2}\n${l3}\nEnd of line.` });
+        }
+
+        async function callGemini(answers) {
+            if (!apiKey) { await new Promise(r => setTimeout(r, 1000)); return generateLocalProfile(answers); }
+            const prompt = `Analyze: ${JSON.stringify(answers)}. Task 1: Generate a filename ending in .TXT (e.g. VOID_USER.TXT). Task 2: Write a 4-line abstract sci-fi poem about this user. Return JSON: {"name": "...", "poem": "..."}`;
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                const data = await res.json();
+                let text = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+                return text.replace(/```json/g, '').replace(/```/g, '').trim();
+            } catch { return generateLocalProfile(answers); }
+        }
+
+        // --- TERMINAL LOGIC ---
+        async function typeText(text, speed = 20, className = "text-blue") {
+            const span = document.createElement('span');
+            span.className = className;
+            outputDiv.appendChild(span);
+            for (let i = 0; i < text.length; i++) {
+                span.innerText += text.charAt(i);
+                terminalScroll.scrollTop = terminalScroll.scrollHeight;
+                await new Promise(r => setTimeout(r, speed));
+            }
+            outputDiv.appendChild(document.createElement('br'));
+        }
+
+        async function runIntro() {
+            outputDiv.innerHTML = '';
+            inputDiv.classList.remove('visible');
+            userAnswers = {};
+            currentQIndex = 0;
+            isProcessing = false;
+            
+            await typeText("INITIALIZING CREATOR...", 20, "text-green");
+            outputDiv.appendChild(document.createElement('br'));
+            askQuestion();
+        }
+
+        // Exposed function for the new Toolbar buttons
+        window.creatorBtn = async (action) => {
+            if(action === 'help') {
+                await typeText("\n--- SYSTEM HELP ---\nANSWER PROMPTS TO GENERATE IDENTITY.\nNO PERSONAL DATA STORED.\n-------------------\n", 10, "text-yellow");
+            }
+            if(action === 'status') {
+                const status = apiKey ? "ONLINE" : "OFFLINE (LOCAL)";
+                await typeText(`\n--- DIAGNOSTICS ---\nAPI LINK: ${status}\nMEMORY: OK\n-------------------\n`, 10, "text-green");
+            }
+            terminalScroll.scrollTop = terminalScroll.scrollHeight;
+        }
+        
+        window.runIntro = runIntro; 
+
+        async function askQuestion() {
+            if (currentQIndex >= QUESTIONS.length) { processResults(); return; }
+            const q = QUESTIONS[currentQIndex];
+            inputDiv.classList.remove('visible');
+            inputField.value = '';
+
+            await typeText(`QUERY [${currentQIndex + 1}/${QUESTIONS.length}]:`, 10, "text-blue");
+            await typeText(q.text, 10, "text-blue");
+
+            if (q.options) {
+                const list = document.createElement('div');
+                list.className = "option-list";
+                outputDiv.appendChild(list);
+                q.options.forEach((opt, i) => {
+                    const item = document.createElement('div');
+                    item.className = "option-item";
+                    item.innerText = `[${i+1}] ${opt}`;
+                    list.appendChild(item);
+                });
+            }
+            terminalScroll.scrollTop = terminalScroll.scrollHeight;
+            inputDiv.classList.add('visible');
+            inputField.focus();
+        }
+
+        async function handleInput(val) {
+            if(isProcessing) return;
+            const q = QUESTIONS[currentQIndex];
+            let valid = false, ans = "";
+
+            const echo = document.createElement('div');
+            echo.style.color = '#88ccff'; echo.innerText = `> ${val}`;
+            outputDiv.appendChild(echo); outputDiv.appendChild(document.createElement('br'));
+
+            if (q.options) {
+                const idx = parseInt(val) - 1;
+                if (!isNaN(idx) && idx >= 0 && idx < q.options.length) { valid = true; ans = q.options[idx]; }
+                else await typeText("ERROR: INVALID.", 10, "text-red");
+            } else {
+                if (val.length > 0) { valid = true; ans = val; }
+            }
+
+            if (valid) {
+                userAnswers[q.id] = ans;
+                currentQIndex++;
+                askQuestion();
+            }
+            terminalScroll.scrollTop = terminalScroll.scrollHeight;
+        }
+
+        async function processResults() {
+            isProcessing = true;
+            inputDiv.classList.remove('visible');
+            await typeText("GENERATING PROFILE...", 30, "text-yellow");
+            
+            try {
+                const json = await callGemini(userAnswers);
+                const data = JSON.parse(json);
+                
+                await typeText("FILE CREATED: " + data.name, 30, "text-green");
+                await typeText("SAVING TO DESKTOP...", 30, "text-blue");
+                
+                files.push({ name: data.name, content: data.poem });
+                renderDesktop();
+                
+                await new Promise(r => setTimeout(r, 1000));
+                window.closeWindow('creator');
+                
+            } catch (e) {
+                console.error(e);
+                await typeText("WRITE ERROR.", 30, "text-red");
+            }
+        }
+
+        inputField.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleInput(inputField.value.trim());
+        });
+
+        // --- THREE.JS SCENE ---
+        function initThree() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x020205, 10, 60);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 15);
+
+            renderer = new THREE.WebGLRenderer({ antialias: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.5;
+
+            scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+            const pLight = new THREE.PointLight(0x00f3ff, 2, 50); pLight.position.set(5, 5, 5); scene.add(pLight);
+
+            // Particles
+            const geo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+            const mat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true });
+            
+            for(let i=0; i<100; i++) {
+                const cube = new THREE.Mesh(geo, mat);
+                cube.position.set((Math.random()-0.5)*30, (Math.random()-0.5)*20, (Math.random()-0.5)*10 - 5);
+                cube.userData = { offset: Math.random()*100 };
+                scene.add(cube);
+            }
+
+            // Starfield
+            const starGeo = new THREE.BufferGeometry();
+            const count = 2000;
+            const pos = new Float32Array(count*3);
+            for(let i=0; i<count*3; i++) pos[i] = (Math.random()-0.5)*100;
+            starGeo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+            scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({size:0.05, color:0x555555})));
+
+            setupPostProcessing();
+            renderDesktop(); // Trigger initial desktop
+            animate();
+        }
+
+        function setupPostProcessing() {
+            composer = new EffectComposer(renderer);
+            composer.addPass(new RenderPass(scene, camera));
+            const shader = {
+                uniforms: { tDiffuse:{value:null}, resolution:{value:new THREE.Vector2(window.innerWidth,window.innerHeight)} },
+                vertexShader: `varying vec2 vUv; void main(){vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+                fragmentShader: `uniform sampler2D tDiffuse; varying vec2 vUv; void main(){
+                    vec4 c=texture2D(tDiffuse, vUv);
+                    gl_FragColor = vec4(c.rgb * 1.2, 1.0);
+                }`
+            };
+            composer.addPass(new ShaderPass(shader));
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            const time = clock.getElapsedTime();
+            
+            scene.children.forEach(child => {
+                if(child.geometry && child.geometry.type === 'BoxGeometry') {
+                    child.rotation.x += 0.01; child.rotation.y += 0.01;
+                    child.position.y += Math.sin(time + child.userData.offset) * 0.005;
+                }
+            });
+            composer.render();
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        initThree();
+    </script>
+</body>
+</html>
