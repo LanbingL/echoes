@@ -61,11 +61,48 @@ const WINDOW_MESSAGES = [
   "Unit 106: The couple never speaks. Just stare at separate screens."
 ];
 
+// Morse code for "LOVE": L=.-.. O=--- V=...- E=.
+// Timing: dot=200ms, dash=600ms, gap between signals=200ms, gap between letters=600ms
+const MORSE_LOVE = [
+  // L: .-..
+  { type: 'dot', duration: 200 },
+  { type: 'gap', duration: 200 },
+  { type: 'dash', duration: 600 },
+  { type: 'gap', duration: 200 },
+  { type: 'dot', duration: 200 },
+  { type: 'gap', duration: 200 },
+  { type: 'dot', duration: 200 },
+  { type: 'letter-gap', duration: 600 },
+  // O: ---
+  { type: 'dash', duration: 600 },
+  { type: 'gap', duration: 200 },
+  { type: 'dash', duration: 600 },
+  { type: 'gap', duration: 200 },
+  { type: 'dash', duration: 600 },
+  { type: 'letter-gap', duration: 600 },
+  // V: ...-
+  { type: 'dot', duration: 200 },
+  { type: 'gap', duration: 200 },
+  { type: 'dot', duration: 200 },
+  { type: 'gap', duration: 200 },
+  { type: 'dot', duration: 200 },
+  { type: 'gap', duration: 200 },
+  { type: 'dash', duration: 600 },
+  { type: 'letter-gap', duration: 600 },
+  // E: .
+  { type: 'dot', duration: 200 },
+  { type: 'end', duration: 1000 },
+];
+
 export const WindowsRoom: React.FC = () => {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [clickedIndex, setClickedIndex] = useState<number | null>(null);
+  const [allWindowsLit, setAllWindowsLit] = useState(false);
+  const [isMorseActive, setIsMorseActive] = useState(false);
+  const [unit404Lit, setUnit404Lit] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [tilt, setTilt] = useState({ rotateX: 0, rotateY: 0 });
+  const morseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auto-play video when component mounts
   useEffect(() => {
@@ -98,13 +135,75 @@ export const WindowsRoom: React.FC = () => {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
+  // Play Morse code sequence for "LOVE"
+  const playMorseCode = () => {
+    let currentIndex = 0;
+
+    const playNext = () => {
+      if (currentIndex >= MORSE_LOVE.length) {
+        // End of morse code - reset everything
+        setIsMorseActive(false);
+        setUnit404Lit(false);
+        return;
+      }
+
+      const signal = MORSE_LOVE[currentIndex];
+
+      // Turn light on for dots and dashes, off for gaps
+      if (signal.type === 'dot' || signal.type === 'dash') {
+        setUnit404Lit(true);
+      } else {
+        setUnit404Lit(false);
+      }
+
+      currentIndex++;
+      morseTimeoutRef.current = setTimeout(playNext, signal.duration);
+    };
+
+    playNext();
+  };
+
+  // Handle window click - special behavior for Unit 404 (index 3)
+  const handleWindowClick = (index: number) => {
+    if (index === 3 && !allWindowsLit && !isMorseActive) {
+      // Unit 404 - trigger the sequence
+      setClickedIndex(index);
+
+      // Step 1: Light up all windows
+      setAllWindowsLit(true);
+
+      // Step 2: After 1.5s, fade all windows to black
+      setTimeout(() => {
+        setAllWindowsLit(false);
+      }, 1500);
+
+      // Step 3: After 2.5s (1s after fade), start morse code on Unit 404
+      setTimeout(() => {
+        setIsMorseActive(true);
+        playMorseCode();
+      }, 2500);
+    } else if (!isMorseActive) {
+      setClickedIndex(index);
+    }
+  };
+
+  // Cleanup morse timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (morseTimeoutRef.current) {
+        clearTimeout(morseTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Calculate scale to fit viewport while maintaining aspect ratio
-  // Video dimensions: 864x448, aspect ratio = 1.929
-  // Scale to fit 90% of viewport height for better viewing
+  // Video dimensions: 1956x1060 (displayed at 978x530), aspect ratio = 1.85
+  // Scale to fit viewport for better viewing
   const scaleRef = useRef<HTMLDivElement>(null);
 
   return (
     <div className="absolute inset-0 z-[100] bg-black flex flex-col items-center justify-center overflow-hidden pointer-events-auto" style={{ fontFamily: "'Courier New', Courier, monospace" }}>
+
 
       {/* Dark Overlay - Creates the "dark scene" effect */}
       <div className="absolute inset-0 bg-black/80 z-10" />
@@ -114,14 +213,15 @@ export const WindowsRoom: React.FC = () => {
            style={{ backgroundImage: `url("${DOT_PATTERN}")`, backgroundSize: '4px 4px' }}
       />
 
-      {/* Main Building Container - Scaled to fit viewport */}
+
+      {/* Main Building Container - Scaled to fit viewport (stable, no shake) */}
       <div
         ref={scaleRef}
         className="relative z-30"
         style={{
-          width: '864px',
-          height: '448px',
-          transform: `perspective(1000px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg) scale(1.8)`,
+          width: '978px',
+          height: '530px',
+          transform: `perspective(1000px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg) scale(1.6)`,
           transformOrigin: 'center center',
           transition: 'transform 0.3s ease-out'
         }}
@@ -130,15 +230,17 @@ export const WindowsRoom: React.FC = () => {
         {/* Background Video - Exact size matching */}
         <video
           ref={videoRef}
-          src="/building 6x4.mp4"
+          src="/windows new.mp4?v=2"
           className="absolute top-0 left-0"
           style={{
-            width: '864px',
-            height: '448px',
-            filter: `brightness(${hoveredIndex !== null ? '0.7' : '0.15'}) contrast(${hoveredIndex !== null ? '1.2' : '1'})`,
+            width: '978px',
+            height: '530px',
+            filter: allWindowsLit
+              ? 'brightness(1) contrast(1.1)'
+              : `brightness(${hoveredIndex !== null || unit404Lit || clickedIndex !== null ? '1' : '0.35'}) contrast(1.1)`,
             zIndex: 0,
             objectFit: 'cover',
-            transition: 'filter 0.3s ease-out'
+            transition: 'filter 0.5s ease-out'
           }}
           autoPlay
           loop
@@ -150,32 +252,36 @@ export const WindowsRoom: React.FC = () => {
 
 
         {/* Window Grid with Video Reveal - Exact pixel alignment */}
-        <div className="absolute top-0 left-0 grid grid-cols-6 grid-rows-4 gap-y-[12px] z-10" style={{ width: '864px', height: '448px' }}>
+        <div className="absolute top-0 left-0 grid grid-cols-6 grid-rows-4 gap-y-[14px] z-10" style={{ width: '978px', height: '530px' }}>
           {Array.from({ length: 24 }).map((_, index) => {
             const isHovered = hoveredIndex === index;
+            const isUnit404 = index === 3;
+            const isClicked = clickedIndex === index;
+            // Determine if this window should be lit
+            const shouldBeLit = isHovered || allWindowsLit || (isUnit404 && unit404Lit) || isClicked;
 
             return (
               <div
                 key={index}
                 className="relative cursor-pointer overflow-hidden"
                 style={{
-                  width: '144px',
-                  height: '100.8px' // 10% smaller than 112px
+                  width: '163px',
+                  height: '119px'
                 }}
                 onMouseEnter={() => setHoveredIndex(index)}
                 onMouseLeave={() => setHoveredIndex(null)}
-                onClick={() => setClickedIndex(index)}
+                onClick={() => handleWindowClick(index)}
               >
-                {/* Dark overlay on each window - lightens on hover to reveal video */}
+                {/* Dark overlay on each window - lightens on hover, all lit, or morse blink */}
                 <div
-                  className={`
-                    absolute inset-0 bg-black transition-all duration-500 ease-out
-                    ${isHovered ? 'opacity-0' : 'opacity-90'}
-                  `}
+                  className="absolute inset-0 bg-black ease-out"
+                  style={{
+                    opacity: shouldBeLit ? 0 : 0.7,
+                    transition: isUnit404 && isMorseActive
+                      ? 'opacity 0.05s ease-out' // Fast transition for morse code
+                      : 'opacity 0.5s ease-out'  // Normal transition
+                  }}
                 />
-
-                {/* The Window Frame / Grate Overlay */}
-                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.6)_1px,transparent_1px),linear-gradient(rgba(0,0,0,0.6)_1px,transparent_1px)] bg-[size:10%_20%] z-20 pointer-events-none" />
 
                 {/* Glass Reflection */}
                 <div className="absolute inset-0 bg-gradient-to-tr from-white/5 via-transparent to-cyan-500/10 opacity-0 hover:opacity-100 transition-opacity duration-300 z-30 pointer-events-none" />

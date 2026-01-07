@@ -5,6 +5,58 @@ import * as THREE from 'three';
 import { getRealWorldNews } from '../services/geminiService';
 import { NewsItem } from '../types';
 
+// Video Card Component at the end of tunnel
+const VideoCard = ({ position }: { position: [number, number, number] }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const [videoTexture, setVideoTexture] = useState<THREE.VideoTexture | null>(null);
+
+  useEffect(() => {
+    const video = document.createElement('video');
+    video.src = '/the eye.mp4';
+    video.crossOrigin = 'anonymous';
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.autoplay = true;
+
+    video.play().catch(e => console.log('Video autoplay blocked:', e));
+
+    const texture = new THREE.VideoTexture(video);
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.colorSpace = THREE.SRGBColorSpace;
+
+    setVideoTexture(texture);
+
+    return () => {
+      video.pause();
+      video.src = '';
+      texture.dispose();
+    };
+  }, []);
+
+  return (
+    <group position={position}>
+      {/* Main video card - larger size with screen blending */}
+      <mesh ref={meshRef}>
+        <planeGeometry args={[28, 17.5]} />
+        {videoTexture ? (
+          <meshBasicMaterial
+            map={videoTexture}
+            toneMapped={false}
+            blending={THREE.AdditiveBlending}
+            transparent
+          />
+        ) : (
+          <meshStandardMaterial color="#111111" />
+        )}
+      </mesh>
+      {/* Light to illuminate surroundings */}
+      <pointLight position={[0, 0, 2]} intensity={3} distance={35} color="#aaaaff" />
+    </group>
+  );
+};
+
 // Updated Palette: Cyan -> Blue -> Purple
 const COLORS = [
   '#00ffff', // Cyan
@@ -41,33 +93,25 @@ const Floor = () => {
           transparent
           opacity={0.8}
        />
-       {/* Secondary glow grid */}
-       <gridHelper args={[200, 50, '#1e3a8a', '#000000']} position={[0, 0.1, 0]} rotation={[Math.PI/2, 0, 0]} />
     </mesh>
   );
 }
 
-const DigitalScreen = ({ 
-  item, 
-  position, 
+const DigitalScreen = ({
+  item,
+  position,
   rotation,
   scale = 1,
   color,
-  index,
-  fontSize,
-  pixelHeight,
-  meshHeight
-}: { 
+  index
+}: {
   key?: any,
-  item?: NewsItem, 
-  position: [number, number, number], 
+  item?: NewsItem,
+  position: [number, number, number],
   rotation: [number, number, number],
   scale?: number,
   color: string,
-  index: number,
-  fontSize: number,
-  pixelHeight: number,
-  meshHeight: number
+  index: number
 }) => {
   // Fallback content for loading state
   const displayTitle = item ? item.title : "INITIALIZING DATA STREAM...";
@@ -75,77 +119,96 @@ const DigitalScreen = ({
   const displayUrl = item ? (item.url !== '#' ? item.url : 'ENCRYPTED') : "WAITING FOR SIGNAL...";
   const isLoading = !item;
 
-  // Screen Dimensions - Increased depth for Cube look
-  const screenWidth = 4.2;
-  const screenDepth = 4.0; 
-  const borderThickness = 0.4; 
+  // Click/Glitch state
+  const [isGlitching, setIsGlitching] = useState(false);
+  const lightRef = useRef<THREE.PointLight>(null);
+  const glowRef = useRef<THREE.Mesh>(null);
+  const glitchIntensity = useRef(0);
 
-  // Calculate tinted text color
-  // Goal: Same Hue, Less Saturation (but not white), High Lightness
-  const textColor = useMemo(() => {
-      const c = new THREE.Color(color);
-      const hsl = { h: 0, s: 0, l: 0 };
-      c.getHSL(hsl);
-      // Keep saturation around 60% (0.6) so it clearly looks colored, not white.
-      // Lightness at 80% (0.8) so it's bright and readable text.
-      c.setHSL(hsl.h, 0.6, 0.8); 
-      return c.getStyle();
-  }, [color]);
-  
+  // Handle click - trigger glitch effect
+  const handleClick = (e: any) => {
+    e.stopPropagation();
+    if (!isGlitching) {
+      setIsGlitching(true);
+      // Auto-reset after 1.5 seconds
+      setTimeout(() => setIsGlitching(false), 1500);
+    }
+  };
+
+  // Animate glitch effect
+  useFrame(() => {
+    const targetIntensity = isGlitching ? 1 : 0;
+    glitchIntensity.current = THREE.MathUtils.lerp(glitchIntensity.current, targetIntensity, 0.1);
+
+    // Animate light intensity
+    if (lightRef.current) {
+      const baseIntensity = 0.8;
+      const glitchBoost = glitchIntensity.current * 15;
+      const flicker = isGlitching ? Math.random() * 5 : 0;
+      lightRef.current.intensity = baseIntensity + glitchBoost + flicker;
+      lightRef.current.distance = 10 + glitchIntensity.current * 20;
+    }
+
+    // Animate glow opacity
+    if (glowRef.current && glowRef.current.material) {
+      const mat = glowRef.current.material as THREE.MeshBasicMaterial;
+      mat.opacity = 0.15 + glitchIntensity.current * 0.6;
+    }
+  });
+
+  // Screen Dimensions - 16:9 aspect ratio
+  const screenWidth = 5.6;  // Width in 3D units
+  const screenHeight = 3.15; // Height = width / (16/9) = 5.6 / 1.778 ≈ 3.15
+
+  // HTML container dimensions matching 16:9
+  const pixelWidth = 640;
+  const pixelHeight = 360; // 640 / 16 * 9 = 360
+
+  // Use the same color as the border for the title text
+  const textColor = color;
+
   return (
     <Float speed={2} rotationIntensity={0.2} floatIntensity={0.5}>
     <group position={position} rotation={rotation} scale={scale}>
-      
-      {/* 1. Main Chassis - Thick Cube */}
-      <mesh position={[0, 0, -screenDepth / 2]}>
-        <boxGeometry args={[screenWidth + borderThickness, meshHeight + borderThickness, screenDepth]} />
-        <meshPhysicalMaterial 
-            color="#050505" 
-            roughness={0.3} 
-            metalness={0.6} 
-            clearcoat={0.2}
-        />
+
+      {/* 1. Solid Screen Face - completely opaque & clickable */}
+      <mesh position={[0, 0, 0.01]} onClick={handleClick}>
+         <planeGeometry args={[screenWidth, screenHeight]} />
+         <meshBasicMaterial color="#000000" side={THREE.DoubleSide} />
       </mesh>
 
-      {/* 2. Tech Wireframe Cage */}
-      <mesh position={[0, 0, -screenDepth / 2]}>
-        <boxGeometry args={[screenWidth + borderThickness + 0.1, meshHeight + borderThickness + 0.1, screenDepth + 0.1]} />
-        <meshBasicMaterial color={color} wireframe transparent opacity={0.15} />
+      {/* 2. Subtle Glow behind screen */}
+      <mesh ref={glowRef} position={[0, 0, -0.05]}>
+         <planeGeometry args={[screenWidth + 0.3, screenHeight + 0.3]} />
+         <meshBasicMaterial color={color} transparent opacity={0.15} depthWrite={false} />
       </mesh>
 
-      {/* 3. Rear Reactor/Glow Panel */}
-      <mesh position={[0, 0, -screenDepth - 0.01]} rotation={[0, Math.PI, 0]}>
-         <planeGeometry args={[screenWidth - 0.5, meshHeight - 0.5]} />
-         <meshBasicMaterial color={color} transparent opacity={0.6} />
-      </mesh>
-      
-      {/* 4. Rear Volumetric Glow */}
-      <mesh position={[0, 0, -screenDepth - 0.5]}>
-         <boxGeometry args={[screenWidth + 1, meshHeight + 1, 1]} />
-         <meshBasicMaterial color={color} transparent opacity={0.08} depthWrite={false} />
-      </mesh>
+      {/* 3. Point light for subtle screen glow */}
+      <pointLight ref={lightRef} position={[0, 0, 1.5]} intensity={0.8} distance={10} color={color} />
 
       {/* 5. HTML Text Content (Front Face) */}
       <Html
         transform
         occlude="blending"
-        position={[0, 0, 0.06]} 
+        position={[0, 0, 0.06]}
         pointerEvents="none"
         style={{
-          width: '800px',
+          width: `${pixelWidth}px`,
           height: `${pixelHeight}px`,
           backgroundColor: '#000',
           userSelect: 'none',
           pointerEvents: 'none',
           perspective: '1000px',
-          fontFamily: "'VT323', monospace" // Explicitly enforcing just in case
+          fontFamily: "'VT323', monospace"
         }}
       >
-        <div 
-            className="w-full h-full flex flex-col border-4 transition-all duration-300 bg-black relative overflow-hidden group"
-            style={{ 
-                borderColor: `${color}`, 
-                boxShadow: `inset 0 0 80px ${color}20` 
+        <div
+            className={`w-full h-full flex flex-col border-4 transition-all duration-300 bg-black relative overflow-hidden group ${isGlitching ? 'screen-glitching' : ''}`}
+            style={{
+                borderColor: `${color}`,
+                boxShadow: isGlitching
+                  ? `inset 0 0 120px ${color}80, 0 0 40px ${color}60, 0 0 80px ${color}40`
+                  : `inset 0 0 80px ${color}20`
             }}
         >
             <style>{`
@@ -163,26 +226,85 @@ const DigitalScreen = ({
                  background-image: radial-gradient(${color}40 1px, transparent 1px);
                  background-size: 4px 4px;
               }
+              @keyframes glitch-skew {
+                0% { transform: skew(0deg, 0deg); }
+                10% { transform: skew(-2deg, -1deg); }
+                20% { transform: skew(3deg, 0deg); }
+                30% { transform: skew(0deg, 1deg); }
+                40% { transform: skew(-1deg, -2deg); }
+                50% { transform: skew(2deg, 1deg); }
+                60% { transform: skew(-3deg, 0deg); }
+                70% { transform: skew(1deg, -1deg); }
+                80% { transform: skew(0deg, 2deg); }
+                90% { transform: skew(-2deg, -1deg); }
+                100% { transform: skew(0deg, 0deg); }
+              }
+              @keyframes glitch-color {
+                0% { filter: hue-rotate(0deg) saturate(1) brightness(1); }
+                20% { filter: hue-rotate(90deg) saturate(2) brightness(1.5); }
+                40% { filter: hue-rotate(-90deg) saturate(1.5) brightness(2); }
+                60% { filter: hue-rotate(180deg) saturate(2) brightness(1.2); }
+                80% { filter: hue-rotate(-45deg) saturate(1.8) brightness(1.8); }
+                100% { filter: hue-rotate(0deg) saturate(1) brightness(1); }
+              }
+              @keyframes glitch-clip {
+                0% { clip-path: inset(0 0 0 0); }
+                10% { clip-path: inset(40% 0 30% 0); }
+                20% { clip-path: inset(92% 0 1% 0); }
+                30% { clip-path: inset(20% 0 60% 0); }
+                40% { clip-path: inset(70% 0 10% 0); }
+                50% { clip-path: inset(10% 0 80% 0); }
+                60% { clip-path: inset(50% 0 30% 0); }
+                70% { clip-path: inset(5% 0 90% 0); }
+                80% { clip-path: inset(80% 0 5% 0); }
+                90% { clip-path: inset(30% 0 50% 0); }
+                100% { clip-path: inset(0 0 0 0); }
+              }
+              @keyframes glitch-flash {
+                0%, 100% { opacity: 1; }
+                10% { opacity: 0.8; }
+                20% { opacity: 1; }
+                30% { opacity: 0.6; }
+                40% { opacity: 1; }
+                50% { opacity: 0.9; }
+                60% { opacity: 0.7; }
+                70% { opacity: 1; }
+                80% { opacity: 0.85; }
+                90% { opacity: 1; }
+              }
+              .screen-glitching {
+                animation: glitch-skew 0.15s infinite, glitch-color 0.3s infinite, glitch-flash 0.1s infinite;
+              }
+              .screen-glitching::before {
+                content: '';
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(transparent 50%, rgba(255,255,255,0.1) 50%);
+                background-size: 100% 4px;
+                animation: glitch-clip 0.2s infinite;
+                pointer-events: none;
+                z-index: 100;
+              }
             `}</style>
-            
+
             {/* Header */}
-            <div className="flex justify-between items-center border-b-2 border-gray-900/80 pb-2 p-6 mb-2 bg-black/80 backdrop-blur-sm z-10">
-                <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-sm ${isLoading ? 'animate-pulse' : ''}`} style={{ backgroundColor: color, boxShadow: `0 0 10px ${color}` }} />
-                    <span className="text-2xl tracking-[0.2em] uppercase font-bold" style={{ color: color, textShadow: `0 0 5px ${color}80` }}>{displaySource}</span>
+            <div className="flex justify-between items-center border-b-4 border-gray-900/80 pb-3 p-5 mb-1 bg-black/80 backdrop-blur-sm z-10">
+                <div className="flex items-center gap-4">
+                    <div className={`w-4 h-4 rounded-sm ${isLoading ? 'animate-pulse' : ''}`} style={{ backgroundColor: color, boxShadow: `0 0 12px ${color}` }} />
+                    <span className="text-4xl tracking-[0.15em] uppercase font-bold" style={{ color: color, textShadow: `0 0 10px ${color}80` }}>{displaySource}</span>
                 </div>
-                <span className="text-xl tracking-widest" style={{ color: textColor }}>CH_{index.toString().padStart(2, '0')}</span>
+                <span className="text-3xl tracking-widest" style={{ color: textColor, textShadow: `0 0 8px ${color}60` }}>CH_{index.toString().padStart(2, '0')}</span>
             </div>
 
             {/* Main Title - Seamless Continuous Scrolling */}
             <div className="flex-grow flex items-center w-full overflow-hidden relative z-10">
                 {isLoading ? (
                     <div className="w-full text-center animate-pulse">
-                         <h1 
+                         <h1
                             className="font-bold leading-none tracking-tight uppercase"
-                            style={{ 
+                            style={{
                                 color: textColor,
-                                fontSize: '36px', // Smaller, fixed size for loading state
+                                fontSize: '72px',
                                 letterSpacing: '0.1em'
                             }}
                         >
@@ -192,17 +314,17 @@ const DigitalScreen = ({
                 ) : (
                     <div className="scrolling-wrapper">
                         {[0, 1].map((key) => (
-                           <h1 
+                           <h1
                                 key={key}
-                                className="font-bold leading-none tracking-tighter uppercase px-8"
-                                style={{ 
+                                className="font-bold leading-none tracking-tighter uppercase px-4"
+                                style={{
                                     color: textColor,
-                                    fontSize: `${fontSize}px`,
+                                    fontSize: '110px',
                                     whiteSpace: 'nowrap',
-                                    textShadow: `0 0 15px ${color}aa` 
+                                    textShadow: `0 0 15px ${color}80`
                                 }}
                             >
-                                {Array(6).fill(displayTitle).join('  ///  ') + '  ///  '}
+                                {Array(4).fill(displayTitle).join('  ///  ') + '  ///  '}
                             </h1>
                         ))}
                     </div>
@@ -210,12 +332,12 @@ const DigitalScreen = ({
             </div>
 
             {/* Footer / Deco */}
-            <div className="border-t-2 border-gray-900/80 pt-2 p-6 flex justify-between items-end z-10 bg-black/80">
-                <div className="text-xl max-w-[70%] truncate uppercase tracking-widest" style={{ color: textColor }}>
+            <div className="border-t-4 border-gray-900/80 pt-3 p-5 flex justify-between items-end z-10 bg-black/80">
+                <div className="text-2xl max-w-[70%] truncate uppercase tracking-wider" style={{ color: textColor, textShadow: `0 0 8px ${color}60` }}>
                     {displayUrl}
                 </div>
-                <div className="flex gap-1">
-                    {[0,1,2].map(k => <div key={k} className="w-1 h-1" style={{ backgroundColor: textColor }} />)}
+                <div className="flex gap-2">
+                    {[0,1,2].map(k => <div key={k} className="w-3 h-3" style={{ backgroundColor: textColor }} />)}
                 </div>
             </div>
             
@@ -284,7 +406,7 @@ export const NewsFeedRoom: React.FC<{ setAttentionScore: (fn: (prev: number) => 
     const handleWheel = (e: WheelEvent) => {
       const sensitivity = 0.05;
       const newZ = targetZ.current + e.deltaY * sensitivity;
-      targetZ.current = THREE.MathUtils.clamp(newZ, 2, 50);
+      targetZ.current = THREE.MathUtils.clamp(newZ, -30, 40);
     };
     window.addEventListener('wheel', handleWheel, { passive: true });
     return () => window.removeEventListener('wheel', handleWheel);
@@ -294,10 +416,10 @@ export const NewsFeedRoom: React.FC<{ setAttentionScore: (fn: (prev: number) => 
     const loadNews = async () => {
         const items = await getRealWorldNews();
         let filledItems = [...items];
-        while (filledItems.length < 25) {
+        while (filledItems.length < 24) {
             filledItems = [...filledItems, ...items];
         }
-        setNewsItems(filledItems.slice(0, 25));
+        setNewsItems(filledItems.slice(0, 24));
     };
 
     loadNews();
@@ -305,41 +427,56 @@ export const NewsFeedRoom: React.FC<{ setAttentionScore: (fn: (prev: number) => 
 
   const screenLayouts = useMemo(() => {
     const layouts = [];
-    const count = 25; 
-    
+    const count = 24; // 6 screens per side x 4 sides = 24 screens
+
+    // 4 sides: left wall, right wall, ceiling, floor
+    // 6 screens per side, distributed along the Z axis
+    const screensPerSide = 6;
+    const zSpacing = 15; // Distance between screens on same side
+    const startZ = 5; // Starting Z position
+
     const createLayout = (i: number) => {
-        const fontSize = Math.floor(Math.random() * (100 - 40 + 1)) + 40;
-        const pixelHeight = 130 + (fontSize * 1.3); 
-        const meshHeight = pixelHeight * 0.00525;
-        const type = i % 6;
+        // Determine which side (0-3) and which position along that side (0-5)
+        const sideIndex = Math.floor(i / screensPerSide); // 0=left, 1=right, 2=ceiling, 3=floor
+        const positionIndex = i % screensPerSide;
+
         let pos: [number, number, number] = [0, 0, 0];
         let rot: [number, number, number] = [0, 0, 0];
-        const baseZ = - (i * 4) + 10; 
-        const zNoise = (Math.random() * 20) - 10;
-        const z = baseZ + zNoise;
 
-        if (type === 0 || type === 1) { 
-            pos = [-14 - Math.random() * 14, (Math.random() * 14) - 4, z];
-            rot = [0, Math.PI / 2 + (Math.random() * 0.3 - 0.15), 0]; 
-        } else if (type === 2 || type === 3) {
-            pos = [14 + Math.random() * 14, (Math.random() * 14) - 4, z];
-            rot = [0, -Math.PI / 2 + (Math.random() * 0.3 - 0.15), 0];
-        } else if (type === 4) {
-            pos = [(Math.random() * 20) - 10, 14 + Math.random() * 4, z];
-            rot = [Math.PI / 2, 0, (Math.random() * 0.4) - 0.2];
-        } else {
-            pos = [(Math.random() * 20) - 10, -5 - Math.random() * 3, z];
-            rot = [-Math.PI / 2.5, 0, (Math.random() * 0.2) - 0.1];
+        // Z position based on position index (with small random offset)
+        const z = startZ - (positionIndex * zSpacing) + (Math.random() * 3 - 1.5);
+
+        // Small X variation for walls, small X/Z variation for ceiling/floor
+        const xVariation = (Math.random() * 4) - 2;
+        const yVariation = (Math.random() * 3) - 1.5;
+
+        // Stagger Y position based on position index to reduce overlap
+        const yOffset = (positionIndex % 3) * 4 - 4; // Creates -4, 0, 4 pattern
+
+        switch (sideIndex) {
+            case 0: // Left wall - facing right (90 degrees on Y)
+                pos = [-18 - Math.random() * 2, 2 + yOffset + yVariation, z];
+                rot = [0, Math.PI / 2, 0];
+                break;
+            case 1: // Right wall - facing left (-90 degrees on Y)
+                pos = [18 + Math.random() * 2, 2 + yOffset + yVariation, z];
+                rot = [0, -Math.PI / 2, 0];
+                break;
+            case 2: // Ceiling - facing down (90 degrees on X)
+                pos = [xVariation, 14 + Math.random() * 2, z];
+                rot = [Math.PI / 2, 0, 0];
+                break;
+            case 3: // Floor - facing up (-90 degrees on X)
+                pos = [xVariation, -6 - Math.random() * 2, z];
+                rot = [-Math.PI / 2, 0, 0];
+                break;
         }
 
         return {
             pos,
             rot,
-            scale: 0.8 + Math.random() * 0.7, 
-            color: COLORS[i % COLORS.length],
-            fontSize,
-            pixelHeight,
-            meshHeight
+            scale: 0.85 + Math.random() * 0.4,
+            color: COLORS[i % COLORS.length]
         };
     };
 
@@ -362,18 +499,18 @@ export const NewsFeedRoom: React.FC<{ setAttentionScore: (fn: (prev: number) => 
   return (
     <>
       <color attach="background" args={['#000']} />
-      {/* High Contrast Fog */}
-      <fog attach="fog" args={['#020202', 5, 50]} />
-      <ambientLight intensity={0.2} />
-      
-      {/* Cold Holographic Lights */}
-      {Array.from({length: 4}).map((_, i) => (
-          <pointLight 
-            key={i} 
-            position={[Math.sin(i)*20, 10, -i * 20]} 
-            intensity={2} 
-            distance={40} 
-            color={COLORS[i % COLORS.length]} 
+      {/* Extended fog for deeper tunnel */}
+      <fog attach="fog" args={['#020202', 10, 120]} />
+      <ambientLight intensity={0.3} />
+
+      {/* Lights along the tunnel - extended range */}
+      {Array.from({length: 8}).map((_, i) => (
+          <pointLight
+            key={i}
+            position={[Math.sin(i) * 15, 8, 5 - i * 12]}
+            intensity={2.5}
+            distance={50}
+            color={COLORS[i % COLORS.length]}
           />
       ))}
       
@@ -385,7 +522,7 @@ export const NewsFeedRoom: React.FC<{ setAttentionScore: (fn: (prev: number) => 
       />
 
       {screenLayouts.map((layout, i) => {
-         const item = newsItems[i]; 
+         const item = newsItems[i];
          return (
             <DigitalScreen
               key={i}
@@ -395,24 +532,69 @@ export const NewsFeedRoom: React.FC<{ setAttentionScore: (fn: (prev: number) => 
               rotation={layout.rot as [number, number, number]}
               scale={layout.scale}
               color={layout.color}
-              fontSize={layout.fontSize}
-              pixelHeight={layout.pixelHeight}
-              meshHeight={layout.meshHeight}
             />
          );
       })}
 
       <Floor />
-      
-      {/* Floating Data Dust */}
-      <Sparkles 
-        count={500} 
-        scale={[40, 20, 60]} 
-        size={3} 
-        speed={0.2} 
-        opacity={0.6} 
-        color="#3b82f6" 
-        position={[0, 0, -20]}
+
+      {/* End Card - Video card at the far end of the tunnel */}
+      <VideoCard position={[0, 4, -90]} />
+
+      {/* Floating Data Dust - Reduced density and glow */}
+      <Sparkles
+        count={150}
+        scale={[50, 30, 120]}
+        size={2.5}
+        speed={0.2}
+        opacity={0.5}
+        color="#00ffff"
+        position={[0, 0, -40]}
+      />
+      <Sparkles
+        count={120}
+        scale={[50, 30, 120]}
+        size={2}
+        speed={0.15}
+        opacity={0.45}
+        color="#8b5cf6"
+        position={[5, 2, -35]}
+      />
+      <Sparkles
+        count={100}
+        scale={[50, 30, 120]}
+        size={2}
+        speed={0.25}
+        opacity={0.4}
+        color="#d946ef"
+        position={[-5, -2, -45]}
+      />
+      <Sparkles
+        count={80}
+        scale={[50, 30, 120]}
+        size={2.5}
+        speed={0.1}
+        opacity={0.35}
+        color="#3b82f6"
+        position={[0, 5, -50]}
+      />
+      <Sparkles
+        count={60}
+        scale={[50, 30, 120]}
+        size={2}
+        speed={0.18}
+        opacity={0.4}
+        color="#f43f5e"
+        position={[-8, 0, -30]}
+      />
+      <Sparkles
+        count={60}
+        scale={[50, 30, 120]}
+        size={1.8}
+        speed={0.22}
+        opacity={0.35}
+        color="#22c55e"
+        position={[8, -3, -55]}
       />
     </>
   );

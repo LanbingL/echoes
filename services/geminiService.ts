@@ -4,6 +4,42 @@ const NEWS_CACHE_KEY = 'echoes_news_cache';
 const NEWS_TIMESTAMP_KEY = 'echoes_news_timestamp';
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
+// Get API key from environment (works in both Vite dev and production)
+const getApiKey = (): string | null => {
+  // @ts-ignore - defined in vite.config.ts
+  if (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) {
+    // @ts-ignore
+    return process.env.GEMINI_API_KEY;
+  }
+  return null;
+};
+
+// Direct Gemini API call for dev mode
+const callGeminiDirectly = async (prompt: string): Promise<string | null> => {
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: "application/json" }
+        })
+      }
+    );
+
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+  } catch (error) {
+    console.error('Gemini API Error:', error);
+    return null;
+  }
+};
+
 export const generateMemoryLog = async (seedId: string): Promise<MemoryLog> => {
   try {
     const response = await fetch('/api/memory', {
@@ -48,6 +84,31 @@ export const getRealWorldNews = async (): Promise<NewsItem[]> => {
   }
 
   try {
+    // Try direct Gemini API call first (for dev mode)
+    const prompt = `Find 24 distinct, current trending world news headlines from reliable sources.
+Return them as a JSON array of objects.
+Each object must have:
+- "title": The news headline.
+- "url": The source URL.
+- "source": The name of the news outlet.
+- "imagePrompt": A concise visual description.`;
+
+    const text = await callGeminiDirectly(prompt);
+
+    if (text) {
+      const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      const data: NewsItem[] = JSON.parse(jsonStr);
+
+      // Save to Cache
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(NEWS_CACHE_KEY, JSON.stringify(data));
+        localStorage.setItem(NEWS_TIMESTAMP_KEY, Date.now().toString());
+      }
+
+      return data;
+    }
+
+    // Fallback to API route (for production/Vercel)
     const response = await fetch('/api/news');
 
     if (!response.ok) {

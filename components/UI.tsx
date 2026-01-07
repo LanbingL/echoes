@@ -40,12 +40,76 @@ const glitchStyles = `
     100% { background-position: 0 100%; }
   }
 
+  @keyframes crt-flicker {
+    0% { opacity: 0.97; }
+    5% { opacity: 0.95; }
+    10% { opacity: 0.98; }
+    15% { opacity: 0.96; }
+    20% { opacity: 0.99; }
+    25% { opacity: 0.94; }
+    30% { opacity: 0.98; }
+    35% { opacity: 0.97; }
+    40% { opacity: 0.95; }
+    45% { opacity: 0.99; }
+    50% { opacity: 0.96; }
+    55% { opacity: 0.98; }
+    60% { opacity: 0.94; }
+    65% { opacity: 0.97; }
+    70% { opacity: 0.99; }
+    75% { opacity: 0.95; }
+    80% { opacity: 0.98; }
+    85% { opacity: 0.96; }
+    90% { opacity: 0.99; }
+    95% { opacity: 0.94; }
+    100% { opacity: 0.97; }
+  }
+
   @keyframes button-glitch {
     0%, 100% { transform: translate(0, 0) skew(0deg); }
     20% { transform: translate(-2px, 1px) skew(-1deg); }
     40% { transform: translate(2px, -1px) skew(1deg); }
     60% { transform: translate(-1px, -2px) skew(-0.5deg); }
     80% { transform: translate(1px, 2px) skew(0.5deg); }
+  }
+
+  @keyframes button-intense-glitch {
+    0% { transform: translate(0, 0) skew(0deg); clip-path: inset(0 0 0 0); }
+    5% { transform: translate(-3px, 2px) skew(-2deg); clip-path: inset(10% 0 85% 0); }
+    10% { transform: translate(3px, -1px) skew(3deg); clip-path: inset(80% 0 5% 0); }
+    15% { transform: translate(-2px, -2px) skew(-1deg); clip-path: inset(40% 0 50% 0); }
+    20% { transform: translate(2px, 1px) skew(2deg); clip-path: inset(0 0 0 0); }
+    25% { transform: translate(-1px, 3px) skew(-3deg); clip-path: inset(25% 0 65% 0); }
+    30% { transform: translate(3px, -2px) skew(1deg); clip-path: inset(70% 0 20% 0); }
+    35% { transform: translate(-3px, 1px) skew(-2deg); clip-path: inset(0 0 0 0); }
+    40% { transform: translate(1px, -3px) skew(3deg); clip-path: inset(55% 0 35% 0); }
+    45% { transform: translate(-2px, 2px) skew(-1deg); clip-path: inset(15% 0 75% 0); }
+    50% { transform: translate(2px, -1px) skew(2deg); clip-path: inset(0 0 0 0); }
+    55% { transform: translate(-1px, -2px) skew(-3deg); clip-path: inset(90% 0 5% 0); }
+    60% { transform: translate(3px, 1px) skew(1deg); clip-path: inset(30% 0 60% 0); }
+    65% { transform: translate(-2px, 3px) skew(-2deg); clip-path: inset(0 0 0 0); }
+    70% { transform: translate(1px, -1px) skew(3deg); clip-path: inset(60% 0 30% 0); }
+    75% { transform: translate(-3px, 2px) skew(-1deg); clip-path: inset(5% 0 90% 0); }
+    80% { transform: translate(2px, -3px) skew(2deg); clip-path: inset(0 0 0 0); }
+    85% { transform: translate(-1px, 1px) skew(-3deg); clip-path: inset(45% 0 45% 0); }
+    90% { transform: translate(3px, 2px) skew(1deg); clip-path: inset(75% 0 15% 0); }
+    95% { transform: translate(-2px, -1px) skew(-2deg); clip-path: inset(20% 0 70% 0); }
+    100% { transform: translate(0, 0) skew(0deg); clip-path: inset(0 0 0 0); }
+  }
+
+  @keyframes button-glow-pulse {
+    0%, 100% {
+      box-shadow: 0 0 5px rgba(59, 130, 246, 0.5), 0 0 10px rgba(59, 130, 246, 0.3);
+    }
+    50% {
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.8), 0 0 40px rgba(59, 130, 246, 0.5), 0 0 60px rgba(59, 130, 246, 0.3);
+    }
+  }
+
+  @keyframes color-shift {
+    0%, 100% { filter: hue-rotate(0deg) brightness(1); }
+    25% { filter: hue-rotate(10deg) brightness(1.2); }
+    50% { filter: hue-rotate(-10deg) brightness(1.1); }
+    75% { filter: hue-rotate(5deg) brightness(1.3); }
   }
 
   .glitch-text {
@@ -75,8 +139,120 @@ const glitchStyles = `
     animation: glitch-anim 3s infinite linear alternate-reverse;
   }
 
+  /* CRT Title Container */
+  .crt-title-container {
+    position: relative;
+    padding: 20px 40px;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  /* CRT Screen Curvature Effect */
+  .crt-title-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 0%, transparent 60%, rgba(0, 0, 0, 0.4) 100%);
+    pointer-events: none;
+    border-radius: 10px;
+  }
+
+  /* CRT Scanlines Overlay */
+  .crt-scanlines {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 1px,
+      rgba(0, 0, 0, 0.3) 1px,
+      rgba(0, 0, 0, 0.3) 2px
+    );
+    pointer-events: none;
+    animation: crt-flicker 0.1s infinite;
+  }
+
+  /* CRT Pixel Grid */
+  .crt-pixels {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 3px 3px;
+    pointer-events: none;
+  }
+
+  /* CRT Glow Effect */
+  .crt-glow {
+    position: absolute;
+    inset: -10px;
+    background: radial-gradient(ellipse at center, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+    pointer-events: none;
+    filter: blur(10px);
+  }
+
+  /* CRT RGB Split on text */
+  .crt-text {
+    position: relative;
+    text-shadow:
+      -1px 0 rgba(255, 0, 0, 0.5),
+      1px 0 rgba(0, 255, 255, 0.5),
+      0 0 10px rgba(59, 130, 246, 0.8),
+      0 0 20px rgba(59, 130, 246, 0.6),
+      0 0 40px rgba(59, 130, 246, 0.4);
+  }
+
+  /* Enhanced Button Glitch on Hover */
+  .glitch-button {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+
+  .glitch-button::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.2), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+
+  .glitch-button::after {
+    content: 'START';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: transparent;
+    pointer-events: none;
+  }
+
   .glitch-button:hover {
-    animation: button-glitch 0.3s infinite;
+    animation: button-intense-glitch 0.15s infinite, button-glow-pulse 0.5s infinite, color-shift 0.3s infinite;
+    background: rgba(59, 130, 246, 0.3) !important;
+    border-color: rgba(59, 130, 246, 0.9) !important;
+    color: #fff !important;
+    text-shadow:
+      -2px 0 #ff00ff,
+      2px 0 #00ffff,
+      0 0 10px rgba(59, 130, 246, 1),
+      0 0 20px rgba(59, 130, 246, 0.8);
+  }
+
+  .glitch-button:hover::before {
+    transform: translateX(100%);
+    transition: transform 0.5s ease;
+  }
+
+  .glitch-button:hover::after {
+    content: 'START';
+    color: rgba(255, 0, 255, 0.5);
+    animation: glitch-anim 0.1s infinite;
+    text-shadow: 2px 0 #00ffff;
   }
 `;
 
@@ -133,23 +309,19 @@ export const UI: React.FC<UIProps> = ({
 
         <div className="absolute inset-0 z-50 bg-black/95 pointer-events-none">
 
-          {/* Title - Upper position with glitch, noise, and glow effects */}
+          {/* Title - Upper position with CRT texture and glitch effects */}
           <div className="absolute top-32 left-0 right-0 flex justify-center pointer-events-none">
             <div className="relative">
+              {/* Title text with CRT effects */}
               <h1
-                className="glitch-text text-8xl font-bold tracking-wider text-center relative"
-                data-text="THE SPY: SIGNAL"
+                className="glitch-text crt-text text-8xl font-bold tracking-wider text-center relative"
+                data-text="THE SPY: ECHOES"
                 style={{
                   color: '#3b82f6',
                   textShadow: '3px 0 0 rgba(255, 0, 255, 0.6), -3px 0 0 rgba(0, 255, 255, 0.6), 0 0 20px rgba(59, 130, 246, 0.8)',
-                  backgroundImage: 'repeating-linear-gradient(0deg, transparent 0px, rgba(255, 255, 255, 0.1) 1px, transparent 2px, transparent 4px)',
-                  backgroundSize: '100% 4px',
-                  animation: 'scanline-move 8s linear infinite',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text'
                 }}
               >
-                THE SPY: SIGNAL
+                THE SPY: ECHOES
               </h1>
             </div>
           </div>

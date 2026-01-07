@@ -10,6 +10,7 @@ export interface NewsItem {
   url: string;
   source: string;
   imagePrompt: string;
+  imageUrl?: string; // Base64 data URL or remote URL for news image
 }
 
 export interface BuildingStory {
